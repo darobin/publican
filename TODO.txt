@@ -1,0 +1,10 @@
+
+CHECK:
+    - http://lists.w3.org/Archives/Public/spec-prod/2013OctDec/0029.html
+    - http://lists.w3.org/Archives/Public/spec-prod/2013OctDec/0031.html
+    - http://lists.w3.org/Archives/Public/spec-prod/2013OctDec/0044.html
+    - http://lists.w3.org/Archives/Public/spec-prod/2013OctDec/0042.html
+    - http://lists.w3.org/Archives/Public/spec-prod/2013OctDec/0051.html
+
+MISC:
+    - http://code.w3.org/publications/ [protected]
