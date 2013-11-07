@@ -35,6 +35,11 @@ function error (res, err) {
     res.send({ ok: false, error: err });
 }
 
+function checkName (res, req, next) {
+    if (!/^[\w_\-]+$/.test(req.params.name)) return error(res, "Bad name, stick to /^[\\w_-]+$/.");
+    next();
+}
+
 // --- API ---
 
 // GET /api/specs
@@ -50,10 +55,9 @@ app.get("/api/specs", function (req, res) {
 //  JSON data should include: name, title, git, branch?
 //  Clones the git URL, and replies with a 202 the payload for which contains a link to a
 //  session endpoint that can be queried for progress. Once done, adds the spec to the DB.
-app.put("/api/spec/:name", function (req, res) {
+app.put("/api/spec/:name", checkName, function (req, res) {
     var spec = req.body;
     if (spec.name !== req.params.name) return error(res, "Name doesn't match data.");
-    if (!/^[\w_\-]+$/.test(spec.name)) return error(res, "Bad name, stick to /^[\\w_-]+$/.");
     spec.snapshots = [];
     if (!spec.title) spec.title = "Untitled Specification";
     var session = repo.clone({
@@ -76,9 +80,8 @@ app.put("/api/spec/:name", function (req, res) {
 // DELETE /api/spec/:name
 //  Removes the spec from the DB and removes all of its TR and snapshots
 //  In the final product, you probably never want to do that
-app.del("/api/spec/:name", function (req, res) {
+app.del("/api/spec/:name", checkName, function (req, res) {
     var name = req.params.name;
-    if (!/^[\w_\-]+$/.test(name)) return error(res, "Bad name, stick to /^[\\w_-]+$/.");
     db.findOne({ name: name }, function (err, spec) {
         if (err) return error(res, err);
         if (!spec) return res.send(404, { ok: false, error: "Specification " + name + " not found." });
@@ -112,7 +115,10 @@ app.del("/api/spec/:name", function (req, res) {
     });
 });
 
-app.post("/api/spec/:name/snapshot", function (req, res) {
+// POST /api/spec/:name/snapshot
+//  Creates a new snapshot for a spec, making its directory and adding to the DB.
+//  Data should include: level (FPWD,LCCR,REC), date (YYYYMMDD), commit
+app.post("/api/spec/:name/snapshot", checkName, function (req, res) {
     // data contains level and date
     // name must exist already
     // start the clone process, setting to given commit
@@ -121,16 +127,9 @@ app.post("/api/spec/:name/snapshot", function (req, res) {
     // $push snapshot YYYYMMDD-{FPWD,LCCR,REC} to snapshots
 });
 
-app.post("/api/spec/:name/snapshot", function (req, res) {
-    // data contains level and date
-    // name must exist already
-    // start the clone process, setting to given commit
-    // respond with 206 (?)
-    // it is then possible to poll
-    // $push snapshot YYYYMMDD-{FPWD,LCCR,REC} to snapshots
-});
-
-app.del("/api/spec/:name/snapshot/:snapshot", function (req, res) {
+// DELETE /api/spec/:name/snapshot/:snapshot
+//  Deletes the snapshot from the spec, kills the directory too
+app.del("/api/spec/:name/snapshot/:snapshot", checkName, function (req, res) {
     // $pull from name
     // rm
     // be cautious
