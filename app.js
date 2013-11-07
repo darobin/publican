@@ -38,7 +38,7 @@ function error (res, err) {
 // --- API ---
 
 // GET /api/specs
-// Returns an array of specs
+//  Returns an array of specs
 app.get("/api/specs", function (req, res) {
     db.find({}, function (err, docs) {
         if (err) return error(res, err);
@@ -73,16 +73,42 @@ app.put("/api/spec/:name", function (req, res) {
     res.json(202, { session: true, id: session.id, path: "/session/" + session.id });
 });
 
+// DELETE /api/spec/:name
+//  Removes the spec from the DB and removes all of its TR and snapshots
+//  In the final product, you probably never want to do that
 app.del("/api/spec/:name", function (req, res) {
-    db.remove({ name: req.params.name }, {}, function (err, count) {
+    var name = req.params.name;
+    if (!/^[\w_\-]+$/.test(name)) return error(res, "Bad name, stick to /^[\\w_-]+$/.");
+    db.findOne({ name: name }, function (err, spec) {
         if (err) return error(res, err);
-        function resp () { res.send({ ok: true, numberRemoved: count }); }
-        if (count) {
-            // XXX also remove snapshots and from TR
-            // be really sure to check that name is what we think it is
-            // rimraf(file, resp)
-        }
-        else resp();
+        if (!spec) return res.send(404, { ok: false, error: "Specification " + name + " not found." });
+        db.remove({ name: name }, {}, function (err, count) {
+            if (err) return error(res, err);
+            if (count) {
+                var removeClone = function (clones) {
+                    if (clones.length) {
+                        var clone = clones.shift();
+                        rimraf(clone, function (err) {
+                            if (err) return error(res, err);
+                            removeClone(clones);
+                        });
+                    }
+                    else {
+                        res.send({ ok: true, numberRemoved: count });
+                    }
+                };
+                var clones = spec.snapshots
+                                 .map(function (sn) {
+                                     return pth.join(snapDir, sn);
+                                 })
+                                 .concat(pth.join(trDir, spec.name))
+                                 ;
+                removeClone(clones);
+            }
+            else {
+                res.send(404, { ok: false, error: "Specification " + name + " not found." });
+            }
+        });
     });
 });
 
@@ -112,8 +138,8 @@ app.del("/api/spec/:name/snapshot/:snapshot", function (req, res) {
 });
 
 // GET /session/:id
-// returns the last messages of a session for a long-running job (e.g npm)
-// this is meant for polling
+//  Returns the last messages of a session for a long-running job (e.g npm).
+//  This is meant for polling.
 app.get("/session/:id", function (req, res) {
     var id = req.params.id
     ,   session = sessions[id]
