@@ -149,10 +149,18 @@ app.post("/api/spec/:name/snapshot", checkName, function (req, res) {
 // DELETE /api/spec/:name/snapshot/:snapshot
 //  Deletes the snapshot from the spec, kills the directory too
 app.del("/api/spec/:name/snapshot/:snapshot", checkName, function (req, res) {
-    // $pull from name
-    // rm
-    // be cautious
-    // format is YYYYMMDD-{FPWD,LCCR,REC}
+    var name = req.params.name
+    ,   snap = req.params.snapshot
+    ;
+    if (!/^\d{8}-[A-Z]{3,4}$/.test(snap)) return error(res, "Bad snapshot identifier.");
+    db.update({ name: name }, { $pull: { snapshots: snap }}, {}, function (err) {
+        if (err) return error(res, err);
+        rimraf(pth.join(snapDir, snap), function (err) {
+            if (err) return error(res, err);
+            res.send({ ok: true });
+        });
+        
+    });
 });
 
 // GET /session/:id
