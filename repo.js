@@ -77,13 +77,18 @@ function runCommands (conf, session, commands, cb) {
 }
 
 exports.clone = function (conf, cb) {
-    var session = new UpdateSession();
-    fs.exists(pth.join(conf.cwd, conf.name), function (exists) {
+    var session = new UpdateSession()
+    ,   fullPath = pth.join(conf.cwd, conf.name)
+    ;
+    fs.exists(fullPath, function (exists) {
         if (exists) return cb("Cannot clone, directory already exists.");
         var commands = [
             ["git", ["clone", "-b", conf.branch, conf.git, conf.name], conf.cwd]
         ,   ["git", "submodule update --init --recursive".split(" "), conf.cwd]
         ];
+        if (conf.commit) {
+            commands.push(["git", ["reset", "--hard", conf.commit], fullPath])
+        }
         runCommands(conf, session, commands, cb);
     });
     return session;

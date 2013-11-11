@@ -119,12 +119,31 @@ app.del("/api/spec/:name", checkName, function (req, res) {
 //  Creates a new snapshot for a spec, making its directory and adding to the DB.
 //  Data should include: level (FPWD,LCCR,REC), date (YYYYMMDD), commit
 app.post("/api/spec/:name/snapshot", checkName, function (req, res) {
-    // data contains level and date
-    // name must exist already
-    // start the clone process, setting to given commit
-    // respond with 206 (?)
-    // it is then possible to poll
-    // $push snapshot YYYYMMDD-{FPWD,LCCR,REC} to snapshots
+    var snap = req.body
+    ,   name = req.params.name
+    ;
+    if (!/^(FPWD|LCCR|REC)$/.test(snap.level)) return error(res, "Invalid snapshot level.");
+    if (!/^\d{8}$/.test(snap.date)) return error(res, "Invalid snapshot date.");
+    db.findOne({ name: name }, function (err, spec) {
+        if (err) return error(res, err);
+        if (!spec) return err(res, "Specification not found.");
+        var session = repo.clone({
+                git:    pth.join(trDir, name)
+            ,   branch: spec.branch || "master"
+            ,   name:   name
+            ,   cwd:    snapDir
+            ,   commit: snap.commit
+            }
+        ,   function (err) {
+                if (err) return error(res, err);
+                db.update({ name: name }, { $push: { snapshots: snap.date + "-" + snap.level }}, {}, function (err) {
+                    if (err) return error(res, err);
+                });
+            }
+        );
+        sessions[session.id] = session;
+        res.json(202, { session: true, id: session.id, path: "/session/" + session.id });
+    });
 });
 
 // DELETE /api/spec/:name/snapshot/:snapshot
